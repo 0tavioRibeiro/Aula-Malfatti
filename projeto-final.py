@@ -97,8 +97,8 @@ class Notificacao:
     def notificar(self, evento: str):
         for o in list(self._observadores): o.atualizar(evento)
         
-# 4) STRATEGY: Modos de operação
-# -----------------------
+# STRATEGY: Modos de operação
+
 class ModoOperacao(ABC):
     @abstractmethod
     def aplicar(self, dispositivos: List[Dispositivo]): pass
@@ -128,4 +128,5 @@ class ModoSeguranca(ModoOperacao):
             elif isinstance(d, Luz):
                 d.desligar()
         
+
 
