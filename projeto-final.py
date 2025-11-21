@@ -36,5 +36,96 @@ class Luz(Dispositovo):
     def status(self) -> str: 
         return 'Luz: Ligada' if self._ligada else 'Luz: Desligada'
 
-class Camera(Dispositovo):
+class Camera(Dispositivo):
     def __init__(self):
+        self._gravando = False
+    
+    def ligar(self): self._gravando = True
+
+    def desligar(self): self._gravando = False
+
+    def status (self) -> str:
+        return 'Câmera: Gravando' if self._gravando else 'Câmera:Desligada'
+
+class SensorMovimento(Dispositivo):
+    def __init__(self):
+        self._ativo = False
+
+    def ligar(self): self._ativo = True
+
+    def desligar(self): self._ativo = False
+
+    def status(self) -> str:
+        return 'Sensor: Ativo' if self._ativo else 'Sensor: Desligado'
+# A classe DispositvosFactory recebe uma string dizendo qual dispositivo criar e retorna um objeto desse tipo. Ela funciona como uma fábrica de dispositivos
+# Essa classe será usada como uma fábrica para criar objetos de tipos diferentes (Luz, Camera, SensorMovimento).
+class DispositvosFactory:
+    @staticmethod #indica que o método não usa self ou informações internas da classe.
+    def criar (tipo:str) -> Dispositivo:
+        # Cria um dicionário que mapeia uma string (chave) para uma classe (valor):
+        m = {
+            'luz':Luz,
+            'camera':Camera,
+            'sensor':SensorMovimento
+            }
+        if tipo not in m:
+            raise ValueError('Tipo desconhecido:{}'.format(tipo))
+        return m [tipo]()
+    
+# OBSERVADOR / NOTIFICAÇÃO
+class Observador(ABC):
+    @abstractmethod
+    def atualizar(self, evento:str):pass
+
+class AppUsuario(Observador):
+    def __init__(self,nome):
+        self.nome = nome
+    
+    def atualizar(self, evento: str):
+        print('{} -APP'.format(evento))
+
+class Notificacao:
+    def __init__(self):
+        self._observadores: List[Observador]=[]
+    
+    def registra(self,obs:Observador):
+        self._observadores.append(obs)
+
+    def remover (self,obs:Observador): 
+        self._observadores.remove(obs)
+
+    def notificar(self, evento: str):
+        for o in list(self._observadores): o.atualizar(evento)
+        
+# 4) STRATEGY: Modos de operação
+# -----------------------
+class ModoOperacao(ABC):
+    @abstractmethod
+    def aplicar(self, dispositivos: List[Dispositivo]): pass
+
+class ModoEconomia(ModoOperacao):
+    def aplicar(self, dispositivos: List[Dispositivo]):
+        for d in dispositivos:
+            try:
+                d.desligar()
+            except Exception:
+                pass
+
+class ModoConforto(ModoOperacao):
+    def aplicar(self, dispositivos: List[Dispositivo]):
+        for d in dispositivos:
+            try:
+                d.ligar()
+            except Exception:
+                pass
+
+class ModoSeguranca(ModoOperacao):
+    def aplicar(self, dispositivos: List[Dispositivo]):
+        # Sensores ligados, cameras ligadas, luzes desligadas
+        for d in dispositivos:
+            if isinstance(d, SensorMovimento) or isinstance(d, Camera):
+                d.ligar()
+            elif isinstance(d, Luz):
+                d.desligar()
+        
+
