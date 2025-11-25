@@ -128,5 +128,267 @@ class ModoSeguranca(ModoOperacao):
             elif isinstance(d, Luz):
                 d.desligar()
         
+#  BUILDER PATTERN
+#  Construção gradual de rotinas automatizadas
+
+class Rotina:
+    def __init__(self, nome: str, acoes: List[Callable]):
+        self.nome = nome
+        self.acoes = acoes
+
+    def executar(self):
+        for acao in self.acoes:
+            acao()
+
+
+class RotinaBuilder:
+    def __init__(self):
+        self.nome = "Rotina"
+        self.acoes = []
+
+    def com_nome(self, nome: str):
+        self.nome = nome
+        return self
+
+    def adicionar_acao(self, acao: Callable):
+        self.acoes.append(acao)
+        return self
+
+    def construir(self) -> Rotina:
+        return Rotina(self.nome, self.acoes)
+
+
+
+#  FACADE PATTERN
+#   Interface  para controlar todo o sistema
+
+class SmartHomeFacade:
+    def __init__(self, controller):
+        self._controller = controller
+
+    def ativar_modo_seguranca(self):
+        self._controller.set_modo(ModoSeguranca())
+
+    def ativar_modo_conforto(self):
+        self._controller.set_modo(ModoConforto())
+
+    def executar_rotina(self, rotina: Rotina):
+        rotina.executar()
+
+    def ligar_dispositivo(self, dispositivo: Dispositivo):
+        self._controller.executar_comando(LigarCommand(dispositivo))
+
+    def desligar_dispositivo(self, dispositivo: Dispositivo):
+        self._controller.executar_comando(DesligarCommand(dispositivo))
+
+
+
+#  ADAPTER PATTERN
+#  Adapta APIs de terceiros para o formato do sistema
+
+class PhilipsHueAPI:
+    def __init__(self):
+        self.on = False
+
+    def turn_on(self):
+        self.on = True
+
+    def turn_off(self):
+        self.on = False
+
+    def get_state(self):
+        return self.on
+
+
+class PhilipsHueAdapter(Dispositivo):
+    def __init__(self, api: PhilipsHueAPI):
+        self._api = api
+
+    def ligar(self):
+        self._api.turn_on()
+
+    def desligar(self):
+        self._api.turn_off()
+
+    def status(self) -> str:
+        return "Luz Hue: Ligada" if self._api.get_state() else "Luz Hue: Desligada"
+
+#  DECORATOR PATTERN
+#  Acrescenta funcionalidades extras sem alterar a classe base
+
+class DispositivoDecorator(Dispositivo):
+    def __init__(self, dispositivo: Dispositivo):
+        self._dispositivo = dispositivo
+
+    def ligar(self):
+        self._dispositivo.ligar()
+
+    def desligar(self):
+        self._dispositivo.desligar()
+
+    def status(self) -> str:
+        return self._dispositivo.status()
+
+
+class MonitoramentoRemotoDecorator(DispositivoDecorator):
+    def __init__(self, dispositivo: Dispositivo, notificador: Notificador):
+        super().__init__(dispositivo)
+        self._notificador = notificador
+
+    def ligar(self):
+        super().ligar()
+        self._notificador.notificar(
+            f"{self._dispositivo.__class__.__name__} ligado remotamente"
+        )
+
+    def desligar(self):
+        super().desligar()
+        self._notificador.notificar(
+            f"{self._dispositivo.__class__.__name__} desligado remotamente"
+        )
+
+
+
+#  COMMAND PATTERN
+#   Permite desfazer ações e registrar histórico
+
+class Command(ABC):
+    @abstractmethod
+    def executar(self):
+        pass
+
+    @abstractmethod
+    def desfazer(self):
+        pass
+
+
+class LigarCommand(Command):
+    def __init__(self, dispositivo: Dispositivo):
+        self._disp = dispositivo
+
+    def executar(self):
+        self._disp.ligar()
+
+    def desfazer(self):
+        self._disp.desligar()
+
+
+class DesligarCommand(Command):
+    def __init__(self, dispositivo: Dispositivo):
+        self._disp = dispositivo
+
+    def executar(self):
+        self._disp.desligar()
+
+    def desfazer(self):
+        self._disp.ligar()
+
+
+
+#  SINGLETON + DEPENDENCY INJECTION
+#  CentralController tem apenas uma instância
+#  Recebe o notificador como dependência externa
+
+class CentralController:
+    _instancia = None
+
+    def __new__(cls, notifier=None):
+        if cls._instancia is None:
+            cls._instancia = super().__new__(cls)
+        return cls._instancia
+
+    def __init__(self, notifier=None):
+        if not hasattr(self, "_initialized"):
+            self._dispositivos = []
+            self._historico = []
+            self._modo = None
+            self._notificador = notifier or Notificador()
+            self._initialized = True
+
+
+    def adicionar_dispositivo(self, dispositivo: Dispositivo):
+        self._dispositivos.append(dispositivo)
+        self._notificador.notificar(
+            f"Dispositivo adicionado: {dispositivo.__class__.__name__}"
+        )
+
+    def executar_comando(self, cmd: Command):
+        cmd.executar()
+        self._historico.append(cmd)
+        self._notificador.notificar(
+            f"Comando executado: {cmd.__class__.__name__} às {datetime.now()}"
+        )
+
+    def desfazer_ultimo(self):
+        if not self._historico:
+            return
+        cmd = self._historico.pop()
+        cmd.desfazer()
+        self._notificador.notificar(
+            f"Comando desfeito:' {cmd.__class__.__name__}' às {datetime.now()}"
+        )
+
+    def set_modo(self, modo: ModoOperacao):
+        self._modo = modo
+        if modo:
+            modo.aplicar(self._dispositivos)
+            self._notificador.notificar(
+                f"Modo definido: {modo.__class__.__name__}"
+            )
+
+
+if __name__ == "__main__":
+    # OBSERVER
+    notificador = Notificador()
+    app = AppUsuario("Otavio")
+    notificador.registrar(app)
+
+   
+    controle = CentralController(notifier=notificador)
+
+    l1 = DispositivosFactory.criar("luz")
+    c1 = DispositivosFactory.criar("camera")
+    s1 = DispositivosFactory.criar("sensor")
+
+    hue_api = PhilipsHueAPI()
+    hue_lamp = PhilipsHueAdapter(hue_api)
+
+ 
+    hue_lamp_monitorada = MonitoramentoRemotoDecorator(hue_lamp, notificador)
+
+
+    for d in [l1, c1, s1, hue_lamp_monitorada]:
+        controle.adicionar_dispositivo(d)
+
+    facade = SmartHomeFacade(controle)
+
+
+    facade.ativar_modo_seguranca()
+
+    facade.ligar_dispositivo(l1)
+    for d in controle._dispositivos:
+        print(d.status())
+
+
+    for i in tqdm(range(10)):
+        time.sleep(1.0)
+
+    rotina = (RotinaBuilder()
+              .com_nome("Boa Noite")
+              .adicionar_acao(lambda: facade.desligar_dispositivo(l1))
+              .adicionar_acao(lambda: facade.ativar_modo_conforto())
+              .construir())
+
+    facade.executar_rotina(rotina)
+    for d in controle._dispositivos:
+        print(d.status())
+
+    for i in tqdm(range(10)):
+        time.sleep(1.0)
+
+    controle.desfazer_ultimo()
+
+    print("Fim da simulação")
+
 
 
