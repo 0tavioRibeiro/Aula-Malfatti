@@ -104,15 +104,15 @@ class Notifier:
     def __init__(self):
         self._observers: List[Observer] = []
 
-    def register(self, obs: Observer):
-        self._observers.append(obs)
+    def register(self, observer: Observer):
+        self._observers.append(observer)
 
-    def remove(self, obs: Observer):
-        self._observers.remove(obs)
+    def remove(self, observer: Observer):
+        self._observers.remove(observer)
 
     def notify(self, event: str):
-        for o in list(self._observers):
-            o.update(event)
+        for observer in list(self._observers):
+            observer.update(event)
 
 
 
@@ -126,32 +126,32 @@ class OperationMode(ABC):
 
 class EcoMode(OperationMode):
     def apply(self, devices: List[Device]):
-        for d in devices:
+        for device in devices: 
             try:
-                d.turn_off()
+                device.turn_off()
             except Exception:
                 pass
 
 
 class ComfortMode(OperationMode):
     def apply(self, devices: List[Device]):
-        for d in devices:
+        for device in devices:
             try:
-                d.turn_on()
+                device.turn_on()
             except Exception:
                 pass
 
 
 class SecurityMode(OperationMode):
     def apply(self, devices: List[Device]):
-        for d in devices:
-            if isinstance(d, (MotionSensor, Camera)):
-                d.turn_on()
-            elif isinstance(d, Light):
-                d.turn_off()
+        for device in devices:
+            if isinstance(device, (MotionSensor, Camera)):
+                device.turn_on()
+            elif isinstance(device, Light):
+                device.turn_off()
 
 
-# BUILDER – Construção de rotinas passo a passo
+# Construção de rotinas passo a passo
 
 class Routine:
     def __init__(self, name: str, actions: List[Callable]):
@@ -203,7 +203,7 @@ class SmartHomeFacade:
 
 
 
-# DECORATOR – Adiciona funcionalidades sem alterar a classe base
+#  Adiciona funcionalidades sem alterar a classe base
 
 class DeviceDecorator(Device):
     def __init__(self, device: Device):
@@ -238,7 +238,7 @@ class RemoteMonitoringDecorator(DeviceDecorator):
 
 
 
-# COMMAND – Executar e desfazer ações
+#Executar e desfazer ações
 
 class Command(ABC):
     @abstractmethod
@@ -294,10 +294,10 @@ class CentralController:
         self._devices.append(device)
         self._notifier.notify(f"Device added: {device.__class__.__name__}")
 
-    def execute_command(self, cmd: Command):
-        cmd.execute()
-        self._history.append(cmd)
-        self._notifier.notify(f"Command executed: {cmd.__class__.__name__} at {datetime.now()}")
+    def execute_command(self, command: Command):
+        command.execute()
+        self._history.append(command)
+        self._notifier.notify(f"Command executed: {command.__class__.__name__} at {datetime.now()}")
 
     def undo_last(self):
         if not self._history:
@@ -329,18 +329,18 @@ if __name__ == "__main__":
 
 
 
-    for d in [l1, c1, s1,]:
-        controller.add_device(d)
+    for device in [l1, c1, s1,]:
+        controller.add_device(device)
 
     facade = SmartHomeFacade(controller)
 
     facade.activate_security_mode()
 
 
-    for d in controller._devices:
-        print(d.status())
+    for device in controller._devices:
+        print(device.status())
 
-    for i in tqdm(range(5)):
+    for tempo in tqdm(range(5)):
         time.sleep(0.5)
 
     routine = (
@@ -353,10 +353,10 @@ if __name__ == "__main__":
 
     facade.execute_routine(routine)
 
-    for d in controller._devices:
-        print(d.status())
+    for device in controller._devices:
+        print(device.status())
 
-    for i in tqdm(range(5)):
+    for tempo in tqdm(range(5)):
         time.sleep(0.5)
 
     controller.undo_last()
