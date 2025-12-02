@@ -1,394 +1,365 @@
-# ==============================================
-# PROJETO: Sistema de Casa Inteligente 
-# Implementa os 10 padrões solicitados:
-# 1 Singleton, 2 Factory, 3 Observer, 4 Strategy, 5 Builder,
-# 6 Facade, 7 Adapter, 8 Decorator, 9 Command, 10 Dependency Injection
-# ==============================================
-
+# Smart Home System
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List
+from typing import Callable, List
+from tqdm import tqdm
+import time
 
 
-# Abstract  base : Dispositivo DeviceFactor
-class  Dispositovo (ABC):
+# HERANÇA – Classe base para todos os dispositivos
+
+class Device(ABC):
     @abstractmethod
-    def ligar (self):
+    def turn_on(self):
         pass
 
     @abstractmethod
-    def desligar (self): 
+    def turn_off(self):
         pass
-
+ 
     @abstractmethod
-    def status (self) -> str:
+    def status(self) -> str:
         pass
 
-# Factory:  DeviceFactor (Fator de dispositivo)
-class Luz(Dispositovo):
+
+
+# FACTORY – Criação de dispositivos de forma padronizada
+
+class Light(Device):
     def __init__(self):
-        self._ligada = False
-    
-    def ligar(self): self._ligada = True
+        self._on = False
 
-    def desligar(self): self._ligada = False
-    
-    def status(self) -> str: 
-        return 'Luz: Ligada' if self._ligada else 'Luz: Desligada'
+    def turn_on(self):
+        self._on = True
 
-class Camera(Dispositivo):
-    def __init__(self):
-        self._gravando = False
-    
-    def ligar(self): self._gravando = True
-
-    def desligar(self): self._gravando = False
-
-    def status (self) -> str:
-        return 'Câmera: Gravando' if self._gravando else 'Câmera:Desligada'
-
-class SensorMovimento(Dispositivo):
-    def __init__(self):
-        self._ativo = False
-
-    def ligar(self): self._ativo = True
-
-    def desligar(self): self._ativo = False
+    def turn_off(self):
+        self._on = False
 
     def status(self) -> str:
-        return 'Sensor: Ativo' if self._ativo else 'Sensor: Desligado'
-# A classe DispositvosFactory recebe uma string dizendo qual dispositivo criar e retorna um objeto desse tipo. Ela funciona como uma fábrica de dispositivos
-# Essa classe será usada como uma fábrica para criar objetos de tipos diferentes (Luz, Camera, SensorMovimento).
-class DispositvosFactory:
-    @staticmethod #indica que o método não usa self ou informações internas da classe.
-    def criar (tipo:str) -> Dispositivo:
-        # Cria um dicionário que mapeia uma string (chave) para uma classe (valor):
-        m = {
-            'luz':Luz,
-            'camera':Camera,
-            'sensor':SensorMovimento
-            }
-        if tipo not in m:
-            raise ValueError('Tipo desconhecido:{}'.format(tipo))
-        return m [tipo]()
-    
-# OBSERVADOR / NOTIFICAÇÃO
-class Observador(ABC):
-    @abstractmethod
-    def atualizar(self, evento:str):pass
+        return "Luz: LIGADA" if self._on else "Luz: DESLIGADA"
 
-class AppUsuario(Observador):
-    def __init__(self,nome):
-        self.nome = nome
-    
-    def atualizar(self, evento: str):
-        print('{} -APP'.format(evento))
 
-class Notificacao:
+class Camera(Device):
     def __init__(self):
-        self._observadores: List[Observador]=[]
-    
-    def registra(self,obs:Observador):
-        self._observadores.append(obs)
+        self._recording = False
 
-    def remover (self,obs:Observador): 
-        self._observadores.remove(obs)
+    def turn_on(self):
+        self._recording = True
 
-    def notificar(self, evento: str):
-        for o in list(self._observadores): o.atualizar(evento)
-        
-# STRATEGY: Modos de operação
+    def turn_off(self):
+        self._recording = False
 
-class ModoOperacao(ABC):
+    def status(self) -> str:
+        return "Câmera: Gravação" if self._recording else "Câmera: DESLIGADA"
+
+
+class MotionSensor(Device):
+    def __init__(self):
+        self._active = False
+
+    def turn_on(self):
+        self._active = True
+
+    def turn_off(self):
+        self._active = False
+
+    def status(self) -> str:
+        return "Sensor de Movimento: Ativo" if self._active else "Sensor de movimento: DESLIGADO"
+
+
+# Factory que cria objetos automaticamente
+class DeviceFactory:
+    @staticmethod
+    def create(device_type: str) -> Device:
+        mapping = {
+            "light": Light,
+            "camera": Camera,
+            "sensor": MotionSensor
+        }
+
+        if device_type not in mapping:
+            raise ValueError(f"Tipo desconhecido: {device_type}")
+
+        return mapping[device_type]()
+
+
+# OBSERVER – Notificações enviadas para vários observadores
+# Ele permite que vários objetos recebam notificações quando algo acontece no sistema
+
+class Observer(ABC):
     @abstractmethod
-    def aplicar(self, dispositivos: List[Dispositivo]): pass
+    def update(self, event: str):
+        pass
 
-class ModoEconomia(ModoOperacao):
-    def aplicar(self, dispositivos: List[Dispositivo]):
-        for d in dispositivos:
+
+class UserApp(Observer):
+    def __init__(self, name):
+        self.name = name
+
+    def update(self, event: str):
+        print(f"{self.name} - APP received notification: {event}")
+
+
+class Notifier:
+    def __init__(self):
+        self._observers: List[Observer] = []
+
+    def register(self, obs: Observer):
+        self._observers.append(obs)
+
+    def remove(self, obs: Observer):
+        self._observers.remove(obs)
+
+    def notify(self, event: str):
+        for o in list(self._observers):
+            o.update(event)
+
+
+
+# STRATEGY – Modos de operação diferentes
+
+class OperationMode(ABC):
+    @abstractmethod
+    def apply(self, devices: List[Device]):
+        pass
+
+
+class EcoMode(OperationMode):
+    def apply(self, devices: List[Device]):
+        for d in devices:
             try:
-                d.desligar()
+                d.turn_off()
             except Exception:
                 pass
 
-class ModoConforto(ModoOperacao):
-    def aplicar(self, dispositivos: List[Dispositivo]):
-        for d in dispositivos:
+
+class ComfortMode(OperationMode):
+    def apply(self, devices: List[Device]):
+        for d in devices:
             try:
-                d.ligar()
+                d.turn_on()
             except Exception:
                 pass
 
-class ModoSeguranca(ModoOperacao):
-    def aplicar(self, dispositivos: List[Dispositivo]):
-        # Sensores ligados, cameras ligadas, luzes desligadas
-        for d in dispositivos:
-            if isinstance(d, SensorMovimento) or isinstance(d, Camera):
-                d.ligar()
-            elif isinstance(d, Luz):
-                d.desligar()
-        
-#  BUILDER PATTERN
-#  Construção gradual de rotinas automatizadas
 
-class Rotina:
-    def __init__(self, nome: str, acoes: List[Callable]):
-        self.nome = nome
-        self.acoes = acoes
-
-    def executar(self):
-        for acao in self.acoes:
-            acao()
+class SecurityMode(OperationMode):
+    def apply(self, devices: List[Device]):
+        for d in devices:
+            if isinstance(d, (MotionSensor, Camera)):
+                d.turn_on()
+            elif isinstance(d, Light):
+                d.turn_off()
 
 
-class RotinaBuilder:
+# BUILDER – Construção de rotinas passo a passo
+
+class Routine:
+    def __init__(self, name: str, actions: List[Callable]):
+        self.name = name
+        self.actions = actions
+
+    def execute(self):
+        for action in self.actions:
+            action()
+
+
+class RoutineBuilder:
     def __init__(self):
-        self.nome = "Rotina"
-        self.acoes = []
+        self.name = "Routine"
+        self.actions = []
 
-    def com_nome(self, nome: str):
-        self.nome = nome
+    def with_name(self, name: str):
+        self.name = name
         return self
 
-    def adicionar_acao(self, acao: Callable):
-        self.acoes.append(acao)
+    def add_action(self, action: Callable):
+        self.actions.append(action)
         return self
 
-    def construir(self) -> Rotina:
-        return Rotina(self.nome, self.acoes)
+    def build(self) -> Routine:
+        return Routine(self.name, self.actions)
 
 
-
-#  FACADE PATTERN
-#   Interface  para controlar todo o sistema
+# FACADE – Interface simples para controlar o sistema
 
 class SmartHomeFacade:
     def __init__(self, controller):
         self._controller = controller
 
-    def ativar_modo_seguranca(self):
-        self._controller.set_modo(ModoSeguranca())
+    def activate_security_mode(self):
+        self._controller.set_mode(SecurityMode())
 
-    def ativar_modo_conforto(self):
-        self._controller.set_modo(ModoConforto())
+    def activate_comfort_mode(self):
+        self._controller.set_mode(ComfortMode())
 
-    def executar_rotina(self, rotina: Rotina):
-        rotina.executar()
+    def execute_routine(self, routine: Routine):
+        routine.execute()
 
-    def ligar_dispositivo(self, dispositivo: Dispositivo):
-        self._controller.executar_comando(LigarCommand(dispositivo))
+    def turn_on_device(self, device: Device):
+        self._controller.execute_command(TurnOnCommand(device))
 
-    def desligar_dispositivo(self, dispositivo: Dispositivo):
-        self._controller.executar_comando(DesligarCommand(dispositivo))
+    def turn_off_device(self, device: Device):
+        self._controller.execute_command(TurnOffCommand(device))
 
 
 
-#  ADAPTER PATTERN
-#  Adapta APIs de terceiros para o formato do sistema
+# DECORATOR – Adiciona funcionalidades sem alterar a classe base
 
-class PhilipsHueAPI:
-    def __init__(self):
-        self.on = False
+class DeviceDecorator(Device):
+    def __init__(self, device: Device):
+        self._device = device
 
     def turn_on(self):
-        self.on = True
+        self._device.turn_on()
 
     def turn_off(self):
-        self.on = False
+        self._device.turn_off()
 
-    def get_state(self):
-        return self.on
-
-
-class PhilipsHueAdapter(Dispositivo):
-    def __init__(self, api: PhilipsHueAPI):
-        self._api = api
-
-    def ligar(self):
-        self._api.turn_on()
-
-    def desligar(self):
-        self._api.turn_off()
-
-    def status(self) -> str:
-        return "Luz Hue: Ligada" if self._api.get_state() else "Luz Hue: Desligada"
-
-#  DECORATOR PATTERN
-#  Acrescenta funcionalidades extras sem alterar a classe base
-
-class DispositivoDecorator(Dispositivo):
-    def __init__(self, dispositivo: Dispositivo):
-        self._dispositivo = dispositivo
-
-    def ligar(self):
-        self._dispositivo.ligar()
-
-    def desligar(self):
-        self._dispositivo.desligar()
-
-    def status(self) -> str:
-        return self._dispositivo.status()
+    def status(self):
+        return self._device.status()
 
 
-class MonitoramentoRemotoDecorator(DispositivoDecorator):
-    def __init__(self, dispositivo: Dispositivo, notificador: Notificador):
-        super().__init__(dispositivo)
-        self._notificador = notificador
+class RemoteMonitoringDecorator(DeviceDecorator):
+    def __init__(self, device: Device, notifier: Notifier):
+        super().__init__(device)
+        self._notifier = notifier
 
-    def ligar(self):
-        super().ligar()
-        self._notificador.notificar(
-            f"{self._dispositivo.__class__.__name__} ligado remotamente"
+    def turn_on(self):
+        super().turn_on()
+        self._notifier.notify(
+            f"{self._device.__class__.__name__} remotely turned ON"
         )
 
-    def desligar(self):
-        super().desligar()
-        self._notificador.notificar(
-            f"{self._dispositivo.__class__.__name__} desligado remotamente"
+    def turn_off(self):
+        super().turn_off()
+        self._notifier.notify(
+            f"{self._device.__class__.__name__} remotely turned OFF"
         )
 
 
 
-#  COMMAND PATTERN
-#   Permite desfazer ações e registrar histórico
+# COMMAND – Executar e desfazer ações
 
 class Command(ABC):
     @abstractmethod
-    def executar(self):
+    def execute(self):
         pass
 
     @abstractmethod
-    def desfazer(self):
+    def undo(self):
         pass
 
 
-class LigarCommand(Command):
-    def __init__(self, dispositivo: Dispositivo):
-        self._disp = dispositivo
+class TurnOnCommand(Command):
+    def __init__(self, device: Device):
+        self._device = device
 
-    def executar(self):
-        self._disp.ligar()
+    def execute(self):
+        self._device.turn_on()
 
-    def desfazer(self):
-        self._disp.desligar()
-
-
-class DesligarCommand(Command):
-    def __init__(self, dispositivo: Dispositivo):
-        self._disp = dispositivo
-
-    def executar(self):
-        self._disp.desligar()
-
-    def desfazer(self):
-        self._disp.ligar()
+    def undo(self):
+        self._device.turn_off()
 
 
+class TurnOffCommand(Command):
+    def __init__(self, device: Device):
+        self._device = device
 
-#  SINGLETON + DEPENDENCY INJECTION
-#  CentralController tem apenas uma instância
-#  Recebe o notificador como dependência externa
+    def execute(self):
+        self._device.turn_off()
+
+    def undo(self):
+        self._device.turn_on()
+
+
+# SINGLETON + DEPENDENCY INJECTION – Controlador central
 
 class CentralController:
-    _instancia = None
+    _instance = None
 
     def __new__(cls, notifier=None):
-        if cls._instancia is None:
-            cls._instancia = super().__new__(cls)
-        return cls._instancia
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self, notifier=None):
         if not hasattr(self, "_initialized"):
-            self._dispositivos = []
-            self._historico = []
-            self._modo = None
-            self._notificador = notifier or Notificador()
+            self._devices = []
+            self._history = []
+            self._mode = None
+            self._notifier = notifier or Notifier()
             self._initialized = True
 
+    def add_device(self, device: Device):
+        self._devices.append(device)
+        self._notifier.notify(f"Device added: {device.__class__.__name__}")
 
-    def adicionar_dispositivo(self, dispositivo: Dispositivo):
-        self._dispositivos.append(dispositivo)
-        self._notificador.notificar(
-            f"Dispositivo adicionado: {dispositivo.__class__.__name__}"
-        )
+    def execute_command(self, cmd: Command):
+        cmd.execute()
+        self._history.append(cmd)
+        self._notifier.notify(f"Command executed: {cmd.__class__.__name__} at {datetime.now()}")
 
-    def executar_comando(self, cmd: Command):
-        cmd.executar()
-        self._historico.append(cmd)
-        self._notificador.notificar(
-            f"Comando executado: {cmd.__class__.__name__} às {datetime.now()}"
-        )
-
-    def desfazer_ultimo(self):
-        if not self._historico:
+    def undo_last(self):
+        if not self._history:
             return
-        cmd = self._historico.pop()
-        cmd.desfazer()
-        self._notificador.notificar(
-            f"Comando desfeito:' {cmd.__class__.__name__}' às {datetime.now()}"
-        )
+        cmd = self._history.pop()
+        cmd.undo()
+        self._notifier.notify(f"Command undone: {cmd.__class__.__name__} at {datetime.now()}")
 
-    def set_modo(self, modo: ModoOperacao):
-        self._modo = modo
-        if modo:
-            modo.aplicar(self._dispositivos)
-            self._notificador.notificar(
-                f"Modo definido: {modo.__class__.__name__}"
-            )
+    def set_mode(self, mode: OperationMode):
+        self._mode = mode
+        if mode:
+            mode.apply(self._devices)
+            self._notifier.notify(f"Mode set: {mode.__class__.__name__}")
+
+
 
 
 if __name__ == "__main__":
-    # OBSERVER
-    notificador = Notificador()
-    app = AppUsuario("Otavio")
-    notificador.registrar(app)
+    notifier = Notifier()
+    app = UserApp("Otavio")
+    notifier.register(app)
 
-   
-    controle = CentralController(notifier=notificador)
+    controller = CentralController(notifier=notifier)
 
-    l1 = DispositivosFactory.criar("luz")
-    c1 = DispositivosFactory.criar("camera")
-    s1 = DispositivosFactory.criar("sensor")
-
-    hue_api = PhilipsHueAPI()
-    hue_lamp = PhilipsHueAdapter(hue_api)
-
- 
-    hue_lamp_monitorada = MonitoramentoRemotoDecorator(hue_lamp, notificador)
+    l1 = DeviceFactory.create("light")
+    c1 = DeviceFactory.create("camera")
+    s1 = DeviceFactory.create("sensor")
 
 
-    for d in [l1, c1, s1, hue_lamp_monitorada]:
-        controle.adicionar_dispositivo(d)
-
-    facade = SmartHomeFacade(controle)
 
 
-    facade.ativar_modo_seguranca()
+    for d in [l1, c1, s1,]:
+        controller.add_device(d)
 
-    facade.ligar_dispositivo(l1)
-    for d in controle._dispositivos:
+    facade = SmartHomeFacade(controller)
+
+    facade.activate_security_mode()
+
+
+    for d in controller._devices:
         print(d.status())
 
+    for i in tqdm(range(5)):
+        time.sleep(0.5)
 
-    for i in tqdm(range(10)):
-        time.sleep(1.0)
+    routine = (
+        RoutineBuilder()
+        .with_name("Boa noite")
+        .add_action(lambda: facade.turn_off_device(l1))
+        .add_action(lambda: facade.activate_comfort_mode())
+        .build()
+    )
 
-    rotina = (RotinaBuilder()
-              .com_nome("Boa Noite")
-              .adicionar_acao(lambda: facade.desligar_dispositivo(l1))
-              .adicionar_acao(lambda: facade.ativar_modo_conforto())
-              .construir())
+    facade.execute_routine(routine)
 
-    facade.executar_rotina(rotina)
-    for d in controle._dispositivos:
+    for d in controller._devices:
         print(d.status())
 
-    for i in tqdm(range(10)):
-        time.sleep(1.0)
+    for i in tqdm(range(5)):
+        time.sleep(0.5)
 
-    controle.desfazer_ultimo()
-
-    print("Fim da simulação")
+    controller.undo_last()
 
 
-
+    print("Fim")
